@@ -161,47 +161,47 @@ const getProfile = async (req, res, next) => {
   }
 };
 
-const resetPassword = async (req, res, next) => {
-  try {
-    if (process.env.NODE_ENV !== 'development') {
-      return res.status(403).json({
-        success: false,
-        message: 'This endpoint is only available in development mode'
-      });
-    }
+// const resetPassword = async (req, res, next) => {
+//   try {
+//     if (process.env.NODE_ENV !== 'development') {
+//       return res.status(403).json({
+//         success: false,
+//         message: 'This endpoint is only available in development mode'
+//       });
+//     }
 
-    const { email, newPassword } = req.body;
-    if (!email || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email and newPassword are required'
-      });
-    }
+//     const { email, newPassword } = req.body;
+//     if (!email || !newPassword) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Email and newPassword are required'
+//       });
+//     }
 
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
+//     const user = await User.findOne({ where: { email } });
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'User not found'
+//       });
+//     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-    await user.update({ password: hashedPassword });
+//     const hashedPassword = await bcrypt.hash(newPassword, 12);
+//     await user.update({ password: hashedPassword });
 
-    res.json({
-      success: true,
-      message: 'Password reset successfully',
-      data: {
-        email: user.email,
-        username: user.username,
-        role: user.role,
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+//     res.json({
+//       success: true,
+//       message: 'Password reset successfully',
+//       data: {
+//         email: user.email,
+//         username: user.username,
+//         role: user.role,
+//       }
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
 module.exports = {
   login,
@@ -209,5 +209,5 @@ module.exports = {
   logout,
   getProfile,
   debugUsers,
-  resetPassword
+  // resetPassword
 };
