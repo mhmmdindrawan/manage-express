@@ -20,77 +20,99 @@ const generateToken = (user) => {
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    
-    console.log('🔍 LOGIN DEBUG - Input received:');
-    console.log('  Email:', email);
-    console.log('  Password length:', password ? password.length : 'undefined');
-    console.log('  Password (first 3 chars):', password ? password.substring(0, 3) + '...' : 'undefined');
-    
-    // Find user by email
-    const user = await User.findOne({ 
-      where: { email: email.toLowerCase() } // Make sure email comparison is case insensitive
+
+    console.log("🔍 LOGIN DEBUG - Input received:");
+    console.log("  Email:", email);
+    console.log(
+      "  Password length:",
+      password ? password.length : "undefined"
+    );
+    console.log(
+      "  Password (first 3 chars):",
+      password ? password.substring(0, 3) + "..." : "undefined"
+    );
+
+    // Cari user by email
+    const user = await User.findOne({
+      where: { email: email.toLowerCase() },
     });
-    
-    console.log('🔍 USER QUERY RESULT:');
+
+    console.log("🔍 USER QUERY RESULT:");
     if (!user) {
-      console.log('  ❌ User NOT FOUND for email:', email);
-      
-      // Let's try to find all users to see what's in the database
+      console.log("  ❌ User NOT FOUND for email:", email);
+
+      // Debug: tampilkan sebagian user di DB
       const allUsers = await User.findAll({
-        attributes: ['user_id', 'username', 'email', 'role'],
-        limit: 10
+        attributes: ["user_id", "username", "email", "role"],
+        limit: 10,
       });
-      console.log('  📋 Available users in database:');
+      console.log("  📋 Available users in database:");
       allUsers.forEach((u, index) => {
         console.log(`    ${index + 1}. ${u.email} (${u.username}) - ${u.role}`);
       });
-      
-      return res.status(401).json({ 
+
+      return res.status(401).json({
         success: false,
-        message: 'Invalid credentials',
-        debug: process.env.NODE_ENV === 'development' ? 'User not found' : undefined
+        message: "Invalid credentials",
+        debug:
+          process.env.NODE_ENV === "development" ? "User not found" : undefined,
       });
     }
-    
-    console.log('  ✅ User FOUND:');
-    console.log('    ID:', user.user_id);
-    console.log('    Username:', user.username);
-    console.log('    Email:', user.email);
-    console.log('    Role:', user.role);
-    console.log('    Password hash (first 10 chars):', user.password ? user.password.substring(0, 10) + '...' : 'undefined');
-    console.log('    Deleted at:', user.deleted_at);
-    
-    // Check if user is soft deleted
+
+    console.log("  ✅ User FOUND:");
+    console.log("    ID:", user.user_id);
+    console.log("    Username:", user.username);
+    console.log("    Email:", user.email);
+    console.log("    Role:", user.role);
+    console.log(
+      "    Password hash (first 10 chars):",
+      user.password ? user.password.substring(0, 10) + "..." : "undefined"
+    );
+    console.log("    Deleted at:", user.deleted_at);
+
+    // Check soft delete
     if (user.deleted_at) {
-      console.log('  ❌ User is SOFT DELETED');
-      return res.status(401).json({ 
+      console.log("  ❌ User is SOFT DELETED");
+      return res.status(401).json({
         success: false,
-        message: 'Account has been deactivated',
-        debug: process.env.NODE_ENV === 'development' ? 'User soft deleted' : undefined
+        message: "Account has been deactivated",
+        debug:
+          process.env.NODE_ENV === "development"
+            ? "User soft deleted"
+            : undefined,
       });
     }
-    
-    // Debug password comparison
-    console.log('🔍 PASSWORD VERIFICATION:');
-    console.log('  Input password:', password);
-    console.log('  Stored hash:', user.password);
-    console.log('  Hash starts with $2y$:', user.password ? user.password.startsWith('$2y$') : false);
-    
-    // Verify password - Laravel menggunakan bcrypt dengan format $2y$
-    // Node.js bcrypt bisa membaca format $2y$ dari Laravel
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    
-    console.log('  🔐 Password validation result:', isPasswordValid);
-    
+
+    // Debug password verification
+    console.log("🔍 PASSWORD VERIFICATION:");
+    console.log("  Input password:", password);
+    console.log("  Stored hash:", user.password);
+    console.log(
+      "  Hash starts with $2y$:",
+      user.password ? user.password.startsWith("$2y$") : false
+    );
+
+    // --- PATCH untuk hash Laravel ($2y$ → $2a$) ---
+    const fixedHash = user.password.replace(/^\$2y\$/, "$2a$");
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, fixedHash);
+    console.log("  🔐 Password validation result:", isPasswordValid);
+
     if (!isPasswordValid) {
-      console.log('  ❌ PASSWORD MISMATCH');
-      
-      // Let's try some common passwords for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.log('  🧪 Testing common passwords:');
-        const testPasswords = ['password', 'admin', 'superadmin', '123456', 'password123'];
+      console.log("  ❌ PASSWORD MISMATCH");
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("  🧪 Testing common passwords:");
+        const testPasswords = [
+          "password",
+          "admin",
+          "superadmin",
+          "123456",
+          "password123",
+        ];
         for (const testPass of testPasswords) {
-          const testResult = await bcrypt.compare(testPass, user.password);
+          const testResult = await bcrypt.compare(testPass, fixedHash);
           console.log(`    "${testPass}": ${testResult}`);
           if (testResult) {
             console.log(`    ✅ FOUND WORKING PASSWORD: "${testPass}"`);
@@ -98,35 +120,52 @@ const login = async (req, res, next) => {
           }
         }
       }
-      
-      return res.status(401).json({ 
+
+      return res.status(401).json({
         success: false,
-        message: 'Invalid credentials',
-        debug: process.env.NODE_ENV === 'development' ? 'Password mismatch' : undefined
+        message: "Invalid credentials",
+        debug:
+          process.env.NODE_ENV === "development"
+            ? "Password mismatch"
+            : undefined,
       });
     }
-    
-    console.log('  ✅ Password VALID');
-    
-    // Check if user is admin or superadmin
-    console.log('🔍 ROLE CHECK:');
-    console.log('  User role:', user.role);
-    console.log('  Is admin/superadmin:', ['admin', 'superadmin'].includes(user.role));
-    
-    if (!['admin', 'superadmin'].includes(user.role)) {
-      console.log('  ❌ INSUFFICIENT ROLE');
+
+    console.log("  ✅ Password VALID");
+
+    // Opsi: rehash otomatis dengan bcrypt Node ($2b$) biar DB konsisten
+    if (user.password.startsWith("$2y$")) {
+      console.log("  🔄 Rehashing password to $2b$ format...");
+      const newHash = await bcrypt.hash(password, 12);
+      user.password = newHash;
+      await user.save();
+    }
+
+    // Role check
+    console.log("🔍 ROLE CHECK:");
+    console.log("  User role:", user.role);
+    console.log(
+      "  Is admin/superadmin:",
+      ["admin", "superadmin"].includes(user.role)
+    );
+
+    if (!["admin", "superadmin"].includes(user.role)) {
+      console.log("  ❌ INSUFFICIENT ROLE");
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Admin access required.',
-        debug: process.env.NODE_ENV === 'development' ? `Role '${user.role}' not allowed` : undefined
+        message: "Access denied. Admin access required.",
+        debug:
+          process.env.NODE_ENV === "development"
+            ? `Role '${user.role}' not allowed`
+            : undefined,
       });
     }
-    
-    console.log('  ✅ Role AUTHORIZED');
-    
+
+    console.log("  ✅ Role AUTHORIZED");
+
     // Generate token
     const token = generateToken(user);
-    
+
     // Prepare user data (exclude sensitive info)
     const userData = {
       user_id: user.user_id,
@@ -134,23 +173,22 @@ const login = async (req, res, next) => {
       email: user.email,
       role: user.role,
       partner_id: user.partner_id,
-      email_verified_at: user.email_verified_at
+      email_verified_at: user.email_verified_at,
     };
-    
-    console.log('🎉 LOGIN SUCCESSFUL for user:', userData.username);
-    
+
+    console.log("🎉 LOGIN SUCCESSFUL for user:", userData.username);
+
     res.json({
       success: true,
-      message: 'Login successful',
+      message: "Login successful",
       data: {
         token,
-        user: userData
-      }
+        user: userData,
+      },
     });
-    
   } catch (error) {
-    console.error('💥 LOGIN ERROR:', error);
-    console.error('Stack trace:', error.stack);
+    console.error("💥 LOGIN ERROR:", error);
+    console.error("Stack trace:", error.stack);
     next(error);
   }
 };
@@ -159,21 +197,21 @@ const login = async (req, res, next) => {
 const debugUsers = async (req, res, next) => {
   try {
     console.log('🔍 DEBUG USERS ENDPOINT CALLED');
-    
+
     // Test database connection
     const User = require('../models/User');
-    
+
     // Get all users
     const users = await User.findAll({
       attributes: ['user_id', 'username', 'email', 'role', 'created_at', 'deleted_at'],
       limit: 20
     });
-    
+
     console.log('📋 All users in database:');
     users.forEach((user, index) => {
       console.log(`${index + 1}. ${user.email} (${user.username}) - Role: ${user.role} - Deleted: ${user.deleted_at ? 'Yes' : 'No'}`);
     });
-    
+
     res.json({
       success: true,
       message: 'Debug users data',
@@ -189,7 +227,7 @@ const debugUsers = async (req, res, next) => {
         }))
       }
     });
-    
+
   } catch (error) {
     console.error('💥 DEBUG USERS ERROR:', error);
     next(error);
@@ -199,15 +237,15 @@ const debugUsers = async (req, res, next) => {
 const refreshToken = async (req, res, next) => {
   try {
     const user = req.user; // From authenticateToken middleware
-    
+
     const token = generateToken(user);
-    
+
     res.json({
       success: true,
       message: 'Token refreshed successfully',
       data: { token }
     });
-    
+
   } catch (error) {
     next(error);
   }
@@ -224,23 +262,23 @@ const logout = async (req, res) => {
 const getProfile = async (req, res, next) => {
   try {
     const userId = req.user.user_id;
-    
+
     const user = await User.findByPk(userId, {
       attributes: { exclude: ['password'] }
     });
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: { user }
     });
-    
+
   } catch (error) {
     next(error);
   }
@@ -256,34 +294,34 @@ const resetPassword = async (req, res, next) => {
         message: 'This endpoint is only available in development mode'
       });
     }
-    
+
     const { email, newPassword } = req.body;
-    
+
     if (!email || !newPassword) {
       return res.status(400).json({
         success: false,
         message: 'Email and newPassword are required'
       });
     }
-    
+
     // Find user
     const user = await User.findOne({ where: { email } });
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 12);
-    
+
     // Update password
     await user.update({ password: hashedPassword });
-    
+
     console.log(`🔧 Password reset for ${email} to "${newPassword}"`);
-    
+
     res.json({
       success: true,
       message: 'Password reset successfully',
@@ -293,7 +331,7 @@ const resetPassword = async (req, res, next) => {
         role: user.role,
       }
     });
-    
+
   } catch (error) {
     console.error('Reset password error:', error);
     next(error);
